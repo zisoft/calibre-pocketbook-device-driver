@@ -15,3 +15,7 @@ With a universal USBMS driver, the corresponding database entries on the device 
 
 ### Book Deletion
 With this device driver the corresponding database entries are also removed, when you delete a book from within Calibre.
+
+
+## Installation
+Download the `pocketbook-632.zip` file. Open Calibre, go to _Preferences, Advanced, Plugins_ and choose _Load Plugin from file_. Choose the `pocketbook-632.zip` file.
