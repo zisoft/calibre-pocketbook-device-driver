@@ -18,7 +18,38 @@ from calibre.devices.usbms.books import BookList, Book
 from calibre.ebooks.metadata.book.json_codec import JsonCodec
 
 
-class Device(USBMS):
+class POCKETBOOK632(USBMS):
+
+    '''
+    Class for PocketBook 632 drivers. Implements the logic for 
+    managing the read status of books and several other improvements.
+
+    This is a two-way sync, no matter where you mark a book as read (on the 
+    device or in Calibre), the read status is synchronized on both platforms.
+   '''
+
+    name  = 'PocketBook632'
+    gui_name = 'PocketBook 632'
+    description    = _('Communicate with PocketBook 632 readers')
+    author         = 'Mario Zimmermann'
+    supported_platforms = ['windows', 'osx', 'linux']
+    # Ordered list of supported formats
+    FORMATS     = ['epub', 'pdf', 'fb2', 'txt', 'pdf', 'html', 'djvu', 'doc', 'docx', 'rtf', 'chm']
+
+    CAN_SET_METADATA = ['collections']
+
+    FORMATS     = ['epub', 'pdf', 'fb2', 'txt', 'pdf', 'html', 'djvu', 'doc', 'docx', 'rtf', 'chm']
+    VENDOR_ID   = [0xfffe]
+    PRODUCT_ID  = [0x0001]
+    BCD         = [0x0230, 0x101]
+
+    EBOOK_DIR_MAIN = 'Books'
+    SCAN_FROM_ROOT = True
+    SUPPORTS_SUB_DIRS = True
+
+    VENDOR_NAME = ['USB_2.0']
+    WINDOWS_MAIN_MEM = WINDOWS_CARD_A_MEM = ['USB_FLASH_DRIVER']
+
 
     def open(self, connected_device, library_uuid):
         super().open(connected_device, library_uuid)
@@ -212,15 +243,3 @@ class Device(USBMS):
             return (changed_books, (None, False))
 
         return (None, (None, False))
-
-
-    def sync_booklists(self, booklists, end_session=True):
-        super().sync_booklists(booklists, end_session)
-
-        debug_print('POCKETBOOK636: sync_booklists()')
-
-
-    def delete_books(self, paths, end_session=True):
-        super().delte_books(paths, end_session)
-
-        debug_print('POCKETBOOK632: delete_books()')

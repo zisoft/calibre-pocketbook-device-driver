@@ -14,7 +14,7 @@ The PocketBook supports to mark a book as read. To synchronize this status with 
 With a universal USBMS driver, the corresponding database entries on the device are not deleted when you delete a book on the device from within Calibre, leaving hundreds of abandoned database entries over time. Of course, theses entries doesn't hurt, but to keep the database in a clean and consistent state, a database cleanup is performed on every device connect.
 
 ### Book Deletion
-With this device driver the corresponding database entries are also removed, when you delete a book from within Calibre.
+With this device driver the corresponding database entries are also removed when you delete a book from within Calibre.
 
 
 ## Installation
