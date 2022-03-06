@@ -59,8 +59,7 @@ class POCKETBOOK632(USBMS):
         self.dbpath = self._getexplorerdb(self._main_prefix)
         debug_print('POCKETBOOK632: Found database at path ' + self.dbpath)
 
-        with closing(sqlite.connect(self.dbpath)) as connection:
-            self._cleanup_database(connection)
+        self._cleanup_database()
 
 
     # get the path for the sqlite db on the device ('explorer-2.db' or 'explorer-3.db')
@@ -74,73 +73,74 @@ class POCKETBOOK632(USBMS):
 
 
     # cleanup the database on the device
-    def _cleanup_database(self, connection):
+    def _cleanup_database(self):
         debug_print('POCKETBOOK632: database cleanup')
 
-        with closing(connection.cursor()) as cursor:
-            cursor.execute('''
-                DELETE FROM BOOKS_SETTINGS
-                WHERE BOOKID IN
-                (
-                    SELECT ID
-                    FROM BOOKS_IMPL
+        with closing(sqlite.connect(self.dbpath)) as connection:
+            with closing(connection.cursor()) as cursor:
+                cursor.execute('''
+                    DELETE FROM BOOKS_SETTINGS
+                    WHERE BOOKID IN
+                    (
+                        SELECT ID
+                        FROM BOOKS_IMPL
+                        WHERE ID NOT IN
+                        (
+                            SELECT BOOK_ID
+                            FROM FILES
+                        )
+                    )
+                ''')
+                rows_affected = cursor.rowcount
+                debug_print('POCKETBOOK632: %d rows from books_settings deleted' %(rows_affected))
+
+            with closing(connection.cursor()) as cursor:
+                cursor.execute('''
+                    DELETE FROM BOOKTOGENRE
+                    WHERE BOOKID IN
+                    (
+                        SELECT ID
+                        FROM BOOKS_IMPL
+                        WHERE ID NOT IN
+                        (
+                            SELECT BOOK_ID
+                            FROM FILES
+                        )
+                    )
+                ''')
+                rows_affected = cursor.rowcount
+                debug_print('POCKETBOOK632: %d rows from booktogenre deleted' %(rows_affected))
+
+            with closing(connection.cursor()) as cursor:
+                cursor.execute('''
+                    DELETE FROM SOCIAL
+                    WHERE BOOKID IN
+                    (
+                        SELECT ID
+                        FROM BOOKS_IMPL
+                        WHERE ID NOT IN
+                        (
+                            SELECT BOOK_ID
+                            FROM FILES
+                        )
+                    )
+                ''')
+                rows_affected = cursor.rowcount
+                debug_print('POCKETBOOK632: %d rows from social deleted' %(rows_affected))
+
+            with closing(connection.cursor()) as cursor:
+                cursor.execute('''
+                    DELETE FROM BOOKS_IMPL
                     WHERE ID NOT IN
                     (
                         SELECT BOOK_ID
                         FROM FILES
                     )
-                )
-            ''')
-            rows_affected = cursor.rowcount
-            debug_print('POCKETBOOK632: %d rows from books_settings deleted' %(rows_affected))
+                ''')
+                rows_affected = cursor.rowcount
+                debug_print('POCKETBOOK632: %d rows from books_impl deleted' %(rows_affected))
 
-        with closing(connection.cursor()) as cursor:
-            cursor.execute('''
-                DELETE FROM BOOKTOGENRE
-                WHERE BOOKID IN
-                (
-                    SELECT ID
-                    FROM BOOKS_IMPL
-                    WHERE ID NOT IN
-                    (
-                        SELECT BOOK_ID
-                        FROM FILES
-                    )
-                )
-            ''')
-            rows_affected = cursor.rowcount
-            debug_print('POCKETBOOK632: %d rows from booktogenre deleted' %(rows_affected))
-
-        with closing(connection.cursor()) as cursor:
-            cursor.execute('''
-                DELETE FROM SOCIAL
-                WHERE BOOKID IN
-                (
-                    SELECT ID
-                    FROM BOOKS_IMPL
-                    WHERE ID NOT IN
-                    (
-                        SELECT BOOK_ID
-                        FROM FILES
-                    )
-                )
-            ''')
-            rows_affected = cursor.rowcount
-            debug_print('POCKETBOOK632: %d rows from social deleted' %(rows_affected))
-
-        with closing(connection.cursor()) as cursor:
-            cursor.execute('''
-                DELETE FROM BOOKS_IMPL
-                WHERE ID NOT IN
-                (
-                    SELECT BOOK_ID
-                    FROM FILES
-                )
-            ''')
-            rows_affected = cursor.rowcount
-            debug_print('POCKETBOOK632: %d rows from books_impl deleted' %(rows_affected))
-
-        connection.commit()
+            connection.commit()
 
 
     # update metadata
@@ -243,3 +243,60 @@ class POCKETBOOK632(USBMS):
             return (changed_books, (None, False))
 
         return (None, (None, False))
+
+
+    # delete books
+    def delete_books(self, paths, end_session=True):
+        debug_print('POCKETBOOK632: delete_books()')
+
+        with closing(sqlite.connect(self.dbpath)) as connection:
+            for i, path in enumerate(paths):
+                path = path.replace(self._main_prefix, '')
+                debug_print('POCKETBOOK632: ' + path)
+
+                with closing(connection.cursor()) as cursor:
+                    cursor.execute('''
+                        select f.id
+                             , f.book_id
+                             , f.filename 
+                             , fld.name 
+                        from files f
+                        join folders fld on fld.id = f.folder_id 
+                        where fld.name || '/' || f.filename like ?
+                    ''', ('%' + path,))
+                    row = cursor.fetchone()
+
+                    if row != None:
+                        # book_id found, delete all database entries
+                        file_id = row[0]
+                        book_id = row[1]
+                        debug_print('POCKETBOOK632: file_id: ' + str(file_id) + ', book_id: ' + str(book_id))
+
+                        with closing(connection.cursor()) as cursor:
+                            cursor.execute('''
+                                DELETE FROM SOCIAL
+                                WHERE BOOKID = ?
+                            ''', (book_id,))
+
+                        with closing(connection.cursor()) as cursor:
+                            cursor.execute('''
+                                DELETE FROM BOOKS_SETTINGS
+                                WHERE BOOKID = ?
+                            ''', (book_id,))
+
+                        with closing(connection.cursor()) as cursor:
+                            cursor.execute('''
+                                DELETE FROM FILES
+                                WHERE ID = ?
+                            ''', (file_id,))
+
+                        with closing(connection.cursor()) as cursor:
+                            cursor.execute('''
+                                DELETE FROM BOOKS_IMPL
+                                WHERE ID = ?
+                            ''', (book_id,))
+
+                    connection.commit()
+
+        super().delete_books(paths, end_session)
+
