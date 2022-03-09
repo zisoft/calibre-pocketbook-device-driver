@@ -145,7 +145,7 @@ class POCKETBOOK632(USBMS):
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
                     DELETE FROM BOOKS_FAST_HASHES
-                    WHERE ID NOT IN
+                    WHERE BOOK_ID NOT IN
                     (
                         SELECT BOOK_ID
                         FROM FILES
@@ -274,11 +274,11 @@ class POCKETBOOK632(USBMS):
 
                 with closing(connection.cursor()) as cursor:
                     cursor.execute('''
-                        select id
-                             , folder_id
-                             , book_id
-                        from files
-                        where filename = ?
+                        SELECT ID
+                             , FOLDER_ID
+                             , BOOK_ID
+                        FROM FILES
+                        WHERE FILENAME = ?
                     ''', (filename,))
                     row = cursor.fetchone()
 
