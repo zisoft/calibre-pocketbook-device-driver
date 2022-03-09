@@ -11,6 +11,7 @@ import sqlite3 as sqlite
 from contextlib import closing
 import calibre
 import traceback
+from itertools import cycle
 
 
 from calibre.devices.usbms.driver import USBMS, debug_print
@@ -77,6 +78,7 @@ class POCKETBOOK632(USBMS):
         debug_print('POCKETBOOK632: database cleanup')
 
         with closing(sqlite.connect(self.dbpath)) as connection:
+
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
                     DELETE FROM BOOKS_SETTINGS
@@ -139,6 +141,19 @@ class POCKETBOOK632(USBMS):
                 ''')
                 rows_affected = cursor.rowcount
                 debug_print('POCKETBOOK632: %d rows from books_impl deleted' %(rows_affected))
+
+            with closing(connection.cursor()) as cursor:
+                cursor.execute('''
+                    DELETE FROM BOOKS_FAST_HASHES
+                    WHERE ID NOT IN
+                    (
+                        SELECT BOOK_ID
+                        FROM FILES
+                    )
+                ''')
+                rows_affected = cursor.rowcount
+                debug_print('POCKETBOOK632: %d rows from books_fast_hashes deleted' %(rows_affected))
+
 
             connection.commit()
 
@@ -253,24 +268,24 @@ class POCKETBOOK632(USBMS):
             for i, path in enumerate(paths):
                 path = path.replace(self._main_prefix, '')
                 debug_print('POCKETBOOK632: ' + path)
+                folder = os.path.dirname(path)
+                filename = os.path.basename(path)
+                debug_print('POCKETBOOK632: ' + filename)
 
                 with closing(connection.cursor()) as cursor:
                     cursor.execute('''
-                        select f.id
-                             , f.book_id
-                             , f.filename 
-                             , fld.name 
-                        from files f
-                        join folders fld on fld.id = f.folder_id 
-                        where fld.name || '/' || f.filename like ?
-                    ''', ('%' + path,))
+                        select id
+                             , folder_id
+                             , book_id
+                        from files
+                        where filename = ?
+                    ''', (filename,))
                     row = cursor.fetchone()
 
                     if row != None:
                         # book_id found, delete all database entries
-                        file_id = row[0]
-                        book_id = row[1]
-                        debug_print('POCKETBOOK632: file_id: ' + str(file_id) + ', book_id: ' + str(book_id))
+                        file_id,folder_id,book_id = row
+                        debug_print('POCKETBOOK632: file_id: ' + str(file_id) + ', folder_id: ' + str(folder_id) + ', book_id: ' + str(book_id))
 
                         with closing(connection.cursor()) as cursor:
                             cursor.execute('''
@@ -292,11 +307,44 @@ class POCKETBOOK632(USBMS):
 
                         with closing(connection.cursor()) as cursor:
                             cursor.execute('''
+                                DELETE FROM BOOKS_FAST_HASHES
+                                WHERE BOOK_ID = ?
+                            ''', (book_id,))
+
+                        with closing(connection.cursor()) as cursor:
+                            cursor.execute('''
+                                DELETE FROM FOLDERS
+                                WHERE ID = ?
+                                AND ID NOT IN (
+                                    SELECT FOLDER_ID 
+                                    FROM FILES 
+                                )
+                            ''', (folder_id,))
+
+                        with closing(connection.cursor()) as cursor:
+                            cursor.execute('''
                                 DELETE FROM BOOKS_IMPL
                                 WHERE ID = ?
                             ''', (book_id,))
 
+                    else:
+                        debug_print('POCKETBOOK632: Book not found in database')
+
+                        folder = os.path.dirname(path)
+                        with closing(connection.cursor()) as cursor:
+                            cursor.execute('''
+                                DELETE FROM FOLDERS
+                                WHERE NAME LIKE ?
+                                AND ID NOT IN (
+                                    SELECT FOLDER_ID 
+                                    FROM FILES 
+                                )
+                            ''', ('%' + folder,))
+                            rows_affected = cursor.rowcount
+                            debug_print('POCKETBOOK632: %d folder(s) deleted' %(rows_affected))
+
                     connection.commit()
+
 
         super().delete_books(paths, end_session)
 
