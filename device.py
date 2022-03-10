@@ -13,10 +13,7 @@ import calibre
 import traceback
 from itertools import cycle
 
-
 from calibre.devices.usbms.driver import USBMS, debug_print
-from calibre.devices.usbms.books import BookList, Book
-from calibre.ebooks.metadata.book.json_codec import JsonCodec
 
 
 class POCKETBOOK632(USBMS):
@@ -33,6 +30,7 @@ class POCKETBOOK632(USBMS):
     gui_name = 'PocketBook 632'
     description    = _('Communicate with PocketBook 632 readers')
     author         = 'Mario Zimmermann'
+    version        = (0, 9, 3)
     supported_platforms = ['windows', 'osx', 'linux']
     # Ordered list of supported formats
     FORMATS     = ['epub', 'pdf', 'fb2', 'txt', 'pdf', 'html', 'djvu', 'doc', 'docx', 'rtf', 'chm']
@@ -171,23 +169,80 @@ class POCKETBOOK632(USBMS):
 
         with closing(sqlite.connect(self.dbpath)) as connection:
 
-            # get the value of the #read column
-            calibre_read = bool(db.new_api.field_for('#read', book_id))
+            # folder and filename on the device
+            path = book_metadata.path.replace(self._main_prefix, '')
+            folder = os.path.dirname(path)
+            filename = os.path.basename(path)
 
-            # get the book_id of the device database
+            # get the book_id of book in the device database
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
-                    SELECT ID
-                    FROM BOOKS_IMPL
-                    WHERE AUTHOR = ?
-                    AND TITLE = ?
-                ''', (', '.join(book_metadata.authors), book_metadata.title))
+                    SELECT f.book_id
+                    FROM FILES f
+                    JOIN FOLDERS fld ON fld.ID = f.FOLDER_ID 
+                    WHERE f.FILENAME = ?
+                    AND fld.NAME LIKE ?
+                ''', (filename, '%' + folder))
                 row = cursor.fetchone()
 
             if row == None:
                 debug_print('POCKETBOOK632: Book not found on device: ' + ', '.join(book_metadata.authors) + ': ' + book_metadata.title)
+                debug_print('POCKETBOOK632: ', folder)
+                debug_print('POCKETBOOK632: ', filename)
+
             else:
                 device_book_id = row[0]
+
+                # The PocketBook does not handle metadata of pdf files correctly,
+                # so check if we need to correct author and title
+                with closing(connection.cursor()) as cursor:
+                    cursor.execute('''
+                        SELECT TITLE
+                             , AUTHOR
+                             , FIRSTAUTHOR
+                             , SORT_TITLE
+                        FROM BOOKS_IMPL
+                        WHERE ID = ?
+                    ''', (device_book_id,))
+                    book_row = cursor.fetchone()
+
+                    if book_row != None:
+                        title,author,firstauthor,sort_title = book_row
+                        if (title != book_metadata.title or 
+                            author != book_metadata.authors[0] or
+                            sort_title != book_metadata.title_sort or
+                            firstauthor != book_metadata.authors[0]):
+                            debug_print('POCKETBOOK632: Title or author mismatch')
+                            debug_print('POCKETBOOK632: ', book_metadata.title, title)
+                            debug_print('POCKETBOOK632: ', book_metadata.title_sort, sort_title)
+                            debug_print('POCKETBOOK632: ', str(book_metadata.authors))
+                            debug_print('POCKETBOOK632: ', str(book_metadata.author_sort))
+
+                            with closing(connection.cursor()) as update_cursor:
+                                update_cursor.execute('''
+                                    UPDATE BOOKS_IMPL
+                                    SET TITLE = ?
+                                      , FIRST_TITLE_LETTER = ?
+                                      , AUTHOR = ?
+                                      , FIRSTAUTHOR = ?
+                                      , FIRST_AUTHOR_LETTER = ?
+                                      , SORT_TITLE = ?
+                                    WHERE ID = ?
+                                ''', (
+                                    book_metadata.title,
+                                    book_metadata.title[:1].upper(),
+                                    book_metadata.authors[0],
+                                    book_metadata.authors[0],
+                                    book_metadata.authors[0][:1].upper(),
+                                    book_metadata.title_sort,
+                                    device_book_id
+                                ))
+
+                                connection.commit()
+
+
+                # get the value of the #read column from Calibre
+                calibre_read = bool(db.new_api.field_for('#read', book_id))
 
                 # get the completed status for this book from the device
                 with closing(connection.cursor()) as cursor:
@@ -347,4 +402,3 @@ class POCKETBOOK632(USBMS):
 
 
         super().delete_books(paths, end_session)
-
