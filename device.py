@@ -11,15 +11,17 @@ import sqlite3 as sqlite
 from contextlib import closing
 import calibre
 import traceback
-from itertools import cycle
+# from itertools import cycle
 
 from calibre.devices.usbms.driver import USBMS, debug_print
 
+from calibre_plugins.pocketbook632.deviceconfig import PB632DeviceConfig
 
-class POCKETBOOK632(USBMS):
+
+class POCKETBOOK632(USBMS, PB632DeviceConfig):
 
     '''
-    Class for PocketBook 632 drivers.
+    PocketBook 632 device driver
     '''
 
     name  = 'PocketBook632'
@@ -51,10 +53,17 @@ class POCKETBOOK632(USBMS):
         
         debug_print('POCKETBOOK632: open()')
 
+        # get the lookup name of the read column from the settings
+        self.read_lookup_name = self.settings().extra_customization[self.OPT_READ_LOOKUP_NAME]
+        debug_print('POCKETBOOK632: read lookup name: ' + self.read_lookup_name)
+
+        # get the path of the device database file
         self.dbpath = self._getexplorerdb(self._main_prefix)
         debug_print('POCKETBOOK632: Found database at path ' + self.dbpath)
 
         self._cleanup_database()
+
+
 
 
     # get the path for the sqlite db on the device ('explorer-2.db' or 'explorer-3.db')
@@ -155,12 +164,18 @@ class POCKETBOOK632(USBMS):
     # update metadata
     def synchronize_with_db(self, db, book_id, book_metadata, first_call):
 
-        # TODO: check if the #read column exists in Calibre
-
         changed_books = set()
 
         if first_call:
             debug_print('POCKETBOOK632: start sychronize_with_db')
+        
+            # check if the read column exists in Calibre
+            fm = db.field_metadata.custom_field_metadata()
+
+            read_column = fm[self.read_lookup_name]
+            self.has_read_column = read_column != None and read_column['datatype'] == 'bool'
+
+            debug_print('POCKETBOOK632: read-column: ' + self.read_lookup_name)
 
 
         with closing(sqlite.connect(self.dbpath)) as connection:
@@ -238,8 +253,11 @@ class POCKETBOOK632(USBMS):
                         connection.commit()
 
 
-                # get the value of the #read column from Calibre
-                calibre_read = bool(db.new_api.field_for('#read', book_id))
+                if not self.has_read_column:
+                    return (None, (None, False))
+
+                # get the value of the read column from Calibre
+                calibre_read = bool(db.new_api.field_for(self.read_lookup_name, book_id))
 
                 # get the completed status for this book from the device
                 with closing(connection.cursor()) as cursor:
@@ -270,7 +288,7 @@ class POCKETBOOK632(USBMS):
                     if not calibre_read:
                         # book is marked read on the device, but not in Calibre
                         debug_print('POCKETBOOK632: Update Calibre database for book_id: ' + str(book_id))
-                        changed_books |= db.new_api.set_field('#read', {book_id: True})
+                        changed_books |= db.new_api.set_field(self.read_lookup_name, {book_id: True})
                     else:
                         # book is marked read in Calibre, but not on device
                         debug_print('POCKETBOOK632: Update device database')

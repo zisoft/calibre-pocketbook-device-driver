@@ -23,3 +23,6 @@ The PocketBook does not handle the metadata of PDF files correctly, mainly the t
 
 ## Installation
 Download the `pocketbook-632.zip` file. Open Calibre, go to _Preferences, Advanced, Plugins_ and choose _Load Plugin from file_. Choose the `pocketbook-632.zip` file. Restart Calibre.
+
+### Configure the Plugin
+Set the lookup name of your custom Yes/No column in the plugin's configuration dialog (default is `#read`) 
