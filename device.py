@@ -28,7 +28,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
     gui_name = 'PocketBook 632'
     description    = _('Communicate with PocketBook 632 readers')
     author         = 'Mario Zimmermann'
-    version        = (0, 9, 3)
+    version        = (1, 0, 0)
     supported_platforms = ['windows', 'osx', 'linux']
 
     # Ordered list of supported formats
