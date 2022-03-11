@@ -19,12 +19,8 @@ from calibre.devices.usbms.driver import USBMS, debug_print
 class POCKETBOOK632(USBMS):
 
     '''
-    Class for PocketBook 632 drivers. Implements the logic for 
-    managing the read status of books and several other improvements.
-
-    This is a two-way sync, no matter where you mark a book as read (on the 
-    device or in Calibre), the read status is synchronized on both platforms.
-   '''
+    Class for PocketBook 632 drivers.
+    '''
 
     name  = 'PocketBook632'
     gui_name = 'PocketBook 632'
@@ -32,12 +28,12 @@ class POCKETBOOK632(USBMS):
     author         = 'Mario Zimmermann'
     version        = (0, 9, 3)
     supported_platforms = ['windows', 'osx', 'linux']
+
     # Ordered list of supported formats
     FORMATS     = ['epub', 'pdf', 'fb2', 'txt', 'pdf', 'html', 'djvu', 'doc', 'docx', 'rtf', 'chm']
 
     CAN_SET_METADATA = ['collections']
 
-    FORMATS     = ['epub', 'pdf', 'fb2', 'txt', 'pdf', 'html', 'djvu', 'doc', 'docx', 'rtf', 'chm']
     VENDOR_ID   = [0xfffe]
     PRODUCT_ID  = [0x0001]
     BCD         = [0x0230, 0x101]
@@ -159,7 +155,7 @@ class POCKETBOOK632(USBMS):
     # update metadata
     def synchronize_with_db(self, db, book_id, book_metadata, first_call):
 
-        # TODO: check if the #read column exists in calibre
+        # TODO: check if the #read column exists in Calibre
 
         changed_books = set()
 
@@ -174,10 +170,10 @@ class POCKETBOOK632(USBMS):
             folder = os.path.dirname(path)
             filename = os.path.basename(path)
 
-            # get the book_id of book in the device database
+            # get the book_id of the book in the device database
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
-                    SELECT f.book_id
+                    SELECT f.BOOK_ID
                     FROM FILES f
                     JOIN FOLDERS fld ON fld.ID = f.FOLDER_ID 
                     WHERE f.FILENAME = ?
@@ -204,41 +200,42 @@ class POCKETBOOK632(USBMS):
                         FROM BOOKS_IMPL
                         WHERE ID = ?
                     ''', (device_book_id,))
-                    book_row = cursor.fetchone()
+                    row = cursor.fetchone()
 
-                    if book_row != None:
-                        title,author,firstauthor,sort_title = book_row
-                        if (title != book_metadata.title or 
-                            author != book_metadata.authors[0] or
-                            sort_title != book_metadata.title_sort or
-                            firstauthor != book_metadata.authors[0]):
-                            debug_print('POCKETBOOK632: Title or author mismatch')
-                            debug_print('POCKETBOOK632: ', book_metadata.title, title)
-                            debug_print('POCKETBOOK632: ', book_metadata.title_sort, sort_title)
-                            debug_print('POCKETBOOK632: ', str(book_metadata.authors))
-                            debug_print('POCKETBOOK632: ', str(book_metadata.author_sort))
+                if row != None:
+                    title,author,firstauthor,sort_title = row
 
-                            with closing(connection.cursor()) as update_cursor:
-                                update_cursor.execute('''
-                                    UPDATE BOOKS_IMPL
-                                    SET TITLE = ?
-                                      , FIRST_TITLE_LETTER = ?
-                                      , AUTHOR = ?
-                                      , FIRSTAUTHOR = ?
-                                      , FIRST_AUTHOR_LETTER = ?
-                                      , SORT_TITLE = ?
-                                    WHERE ID = ?
-                                ''', (
-                                    book_metadata.title,
-                                    book_metadata.title[:1].upper(),
-                                    book_metadata.authors[0],
-                                    book_metadata.authors[0],
-                                    book_metadata.authors[0][:1].upper(),
-                                    book_metadata.title_sort,
-                                    device_book_id
-                                ))
+                    if (title != book_metadata.title or 
+                        author != book_metadata.authors[0] or
+                        sort_title != book_metadata.title_sort or
+                        firstauthor != book_metadata.authors[0]):
+                        debug_print('POCKETBOOK632: Title or author mismatch')
+                        debug_print('POCKETBOOK632: ', book_metadata.title, title)
+                        debug_print('POCKETBOOK632: ', book_metadata.title_sort, sort_title)
+                        debug_print('POCKETBOOK632: ', str(book_metadata.authors))
+                        debug_print('POCKETBOOK632: ', str(book_metadata.author_sort))
 
-                                connection.commit()
+                        with closing(connection.cursor()) as update_cursor:
+                            update_cursor.execute('''
+                                UPDATE BOOKS_IMPL
+                                SET TITLE = ?
+                                    , FIRST_TITLE_LETTER = ?
+                                    , AUTHOR = ?
+                                    , FIRSTAUTHOR = ?
+                                    , FIRST_AUTHOR_LETTER = ?
+                                    , SORT_TITLE = ?
+                                WHERE ID = ?
+                            ''', (
+                                book_metadata.title,
+                                book_metadata.title[:1].upper(),
+                                book_metadata.authors[0],
+                                book_metadata.authors[0],
+                                book_metadata.authors[0][:1].upper(),
+                                book_metadata.title_sort,
+                                device_book_id
+                            ))
+
+                        connection.commit()
 
 
                 # get the value of the #read column from Calibre
@@ -271,11 +268,11 @@ class POCKETBOOK632(USBMS):
                     debug_print('POCKETBOOK632: Device read: ' + str(device_read))
 
                     if not calibre_read:
-                        # book is marked read on the device, but not in calibre
-                        debug_print('POCKETBOOK632: Update calibre database for book_id: ' + str(book_id))
+                        # book is marked read on the device, but not in Calibre
+                        debug_print('POCKETBOOK632: Update Calibre database for book_id: ' + str(book_id))
                         changed_books |= db.new_api.set_field('#read', {book_id: True})
                     else:
-                        # book is marked read in calibre, but not on device
+                        # book is marked read in Calibre, but not on device
                         debug_print('POCKETBOOK632: Update device database')
 
                         with closing(connection.cursor()) as cursor:
@@ -323,82 +320,84 @@ class POCKETBOOK632(USBMS):
             for i, path in enumerate(paths):
                 path = path.replace(self._main_prefix, '')
                 debug_print('POCKETBOOK632: ' + path)
+
                 folder = os.path.dirname(path)
                 filename = os.path.basename(path)
-                debug_print('POCKETBOOK632: ' + filename)
 
                 with closing(connection.cursor()) as cursor:
                     cursor.execute('''
-                        SELECT ID
-                             , FOLDER_ID
-                             , BOOK_ID
-                        FROM FILES
-                        WHERE FILENAME = ?
-                    ''', (filename,))
+                        SELECT f.ID
+                             , f.FOLDER_ID
+                             , f.BOOK_ID
+                        FROM FILES f
+                        JOIN FOLDERS fld ON fld.ID = f.FOLDER_ID 
+                        WHERE f.FILENAME = ?
+                        AND fld.NAME LIKE ?
+                    ''', (filename, '%' + folder))
                     row = cursor.fetchone()
 
-                    if row != None:
-                        # book_id found, delete all database entries
-                        file_id,folder_id,book_id = row
-                        debug_print('POCKETBOOK632: file_id: ' + str(file_id) + ', folder_id: ' + str(folder_id) + ', book_id: ' + str(book_id))
+                if row != None:
+                    # book_id found, delete all database entries
+                    file_id,folder_id,book_id = row
+                    debug_print('POCKETBOOK632: file_id: ' + str(file_id) + ', folder_id: ' + str(folder_id) + ', book_id: ' + str(book_id))
 
-                        with closing(connection.cursor()) as cursor:
-                            cursor.execute('''
-                                DELETE FROM SOCIAL
-                                WHERE BOOKID = ?
-                            ''', (book_id,))
+                    with closing(connection.cursor()) as cursor:
+                        cursor.execute('''
+                            DELETE FROM SOCIAL
+                            WHERE BOOKID = ?
+                        ''', (book_id,))
 
-                        with closing(connection.cursor()) as cursor:
-                            cursor.execute('''
-                                DELETE FROM BOOKS_SETTINGS
-                                WHERE BOOKID = ?
-                            ''', (book_id,))
+                    with closing(connection.cursor()) as cursor:
+                        cursor.execute('''
+                            DELETE FROM BOOKS_SETTINGS
+                            WHERE BOOKID = ?
+                        ''', (book_id,))
 
-                        with closing(connection.cursor()) as cursor:
-                            cursor.execute('''
-                                DELETE FROM FILES
-                                WHERE ID = ?
-                            ''', (file_id,))
+                    with closing(connection.cursor()) as cursor:
+                        cursor.execute('''
+                            DELETE FROM FILES
+                            WHERE ID = ?
+                        ''', (file_id,))
 
-                        with closing(connection.cursor()) as cursor:
-                            cursor.execute('''
-                                DELETE FROM BOOKS_FAST_HASHES
-                                WHERE BOOK_ID = ?
-                            ''', (book_id,))
+                    with closing(connection.cursor()) as cursor:
+                        cursor.execute('''
+                            DELETE FROM BOOKS_FAST_HASHES
+                            WHERE BOOK_ID = ?
+                        ''', (book_id,))
 
-                        with closing(connection.cursor()) as cursor:
-                            cursor.execute('''
-                                DELETE FROM FOLDERS
-                                WHERE ID = ?
-                                AND ID NOT IN (
-                                    SELECT FOLDER_ID 
-                                    FROM FILES 
-                                )
-                            ''', (folder_id,))
+                    with closing(connection.cursor()) as cursor:
+                        cursor.execute('''
+                            DELETE FROM FOLDERS
+                            WHERE ID = ?
+                            AND ID NOT IN (
+                                SELECT FOLDER_ID 
+                                FROM FILES 
+                            )
+                        ''', (folder_id,))
 
-                        with closing(connection.cursor()) as cursor:
-                            cursor.execute('''
-                                DELETE FROM BOOKS_IMPL
-                                WHERE ID = ?
-                            ''', (book_id,))
+                    with closing(connection.cursor()) as cursor:
+                        cursor.execute('''
+                            DELETE FROM BOOKS_IMPL
+                            WHERE ID = ?
+                        ''', (book_id,))
 
-                    else:
-                        debug_print('POCKETBOOK632: Book not found in database')
+                else:
+                    debug_print('POCKETBOOK632: Book not found in database')
 
-                        folder = os.path.dirname(path)
-                        with closing(connection.cursor()) as cursor:
-                            cursor.execute('''
-                                DELETE FROM FOLDERS
-                                WHERE NAME LIKE ?
-                                AND ID NOT IN (
-                                    SELECT FOLDER_ID 
-                                    FROM FILES 
-                                )
-                            ''', ('%' + folder,))
-                            rows_affected = cursor.rowcount
-                            debug_print('POCKETBOOK632: %d folder(s) deleted' %(rows_affected))
+                    folder = os.path.dirname(path)
+                    with closing(connection.cursor()) as cursor:
+                        cursor.execute('''
+                            DELETE FROM FOLDERS
+                            WHERE NAME LIKE ?
+                            AND ID NOT IN (
+                                SELECT FOLDER_ID 
+                                FROM FILES 
+                            )
+                        ''', ('%' + folder,))
+                        rows_affected = cursor.rowcount
+                        debug_print('POCKETBOOK632: %d folder(s) deleted' %(rows_affected))
 
-                    connection.commit()
+            connection.commit()
 
 
         super().delete_books(paths, end_session)
