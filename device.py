@@ -28,8 +28,10 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
     gui_name = 'PocketBook 632'
     description    = _('Communicate with PocketBook 632 readers')
     author         = 'Mario Zimmermann'
-    version        = (1, 0, 0)
+    version        = (1, 0, 1)
     supported_platforms = ['windows', 'osx', 'linux']
+
+    minimum_calibre_version = (5, 0, 0)
 
     # Ordered list of supported formats
     FORMATS     = ['epub', 'pdf', 'fb2', 'txt', 'pdf', 'html', 'djvu', 'doc', 'docx', 'rtf', 'chm']
