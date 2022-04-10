@@ -28,7 +28,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
     gui_name = 'PocketBook 632'
     description    = _('Communicate with PocketBook 632 readers')
     author         = 'Mario Zimmermann'
-    version        = (1, 0, 1)
+    version        = (1, 0, 2)
     supported_platforms = ['windows', 'osx', 'linux']
 
     minimum_calibre_version = (5, 0, 0)
@@ -186,6 +186,9 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
             path = book_metadata.path.replace(self._main_prefix, '')
             folder = os.path.dirname(path)
             filename = os.path.basename(path)
+
+            # Normalize path delimiter for Windows devices
+            folder = folder.replace('\\', '/')
 
             # get the book_id of the book in the device database
             with closing(connection.cursor()) as cursor:
