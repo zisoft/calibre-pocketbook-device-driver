@@ -3,7 +3,7 @@ __copyright__ = '2022 Mario Zimmermann <mail@zisoft.de>'
 __docformat__ = 'restructuredtext en'
 
 '''
-PocketBook 632 Driver.
+PocketBook Improved Driver.
 '''
 
 import os, time, json, shutil
@@ -15,20 +15,21 @@ import traceback
 
 from calibre.devices.usbms.driver import USBMS, debug_print
 
-from calibre_plugins.pocketbook632.deviceconfig import PB632DeviceConfig
+from calibre_plugins.pocketbook632.deviceconfig import PocketBookImprovedDeviceConfig
 
 
-class POCKETBOOK632(USBMS, PB632DeviceConfig):
+
+class POCKETBOOK_IMPROVED(USBMS, PocketBookImprovedDeviceConfig):
 
     '''
-    PocketBook 632 device driver
+    PocketBook Improved Device Driver
     '''
 
-    name  = 'PocketBook632'
-    gui_name = 'PocketBook 632'
-    description    = _('Communicate with PocketBook 632 readers')
+    name  = 'PocketBook Improved Device Interface'
+    gui_name = 'PocketBook Improved'
+    description    = _('Communicate with PocketBook readers')
     author         = 'Mario Zimmermann'
-    version        = (1, 0, 2)
+    version        = (1, 0, 3)
     supported_platforms = ['windows', 'osx', 'linux']
 
     minimum_calibre_version = (5, 0, 0)
@@ -38,9 +39,20 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
 
     CAN_SET_METADATA = ['collections']
 
-    VENDOR_ID   = [0xfffe]
+    # ---------------------------------------------------------------------------
+    # PocketBook Devices
+    #
+    # Device    VENDOR_ID    PRODUCT_ID
+    # ---------------------------------
+    # PB632     0xfffe       0x0001
+    # PB628     ???          ???
+    # PB1040    0x18d1       0x0001
+
+    VENDOR_ID   = [0xfffe,0x18d1]
     PRODUCT_ID  = [0x0001]
+
     BCD         = [0x0230, 0x101]
+
 
     EBOOK_DIR_MAIN = 'Books'
     SCAN_FROM_ROOT = True
@@ -53,15 +65,15 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
     def open(self, connected_device, library_uuid):
         super().open(connected_device, library_uuid)
         
-        debug_print('POCKETBOOK632: open()')
+        debug_print('PB_IMPROVED: open()')
 
         # get the lookup name of the read column from the settings
         self.read_lookup_name = self.settings().extra_customization[self.OPT_READ_LOOKUP_NAME]
-        debug_print('POCKETBOOK632: read lookup name: ' + self.read_lookup_name)
+        debug_print('PB_IMPROVED: read lookup name: ' + self.read_lookup_name)
 
         # get the path of the device database file
         self.dbpath = self._getexplorerdb(self._main_prefix)
-        debug_print('POCKETBOOK632: Found database at path ' + self.dbpath)
+        debug_print('PB_IMPROVED: Found database at path ' + self.dbpath)
 
         self._cleanup_database()
 
@@ -80,7 +92,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
 
     # cleanup the database on the device
     def _cleanup_database(self):
-        debug_print('POCKETBOOK632: database cleanup')
+        debug_print('PB_IMPROVED: database cleanup')
 
         with closing(sqlite.connect(self.dbpath)) as connection:
 
@@ -99,7 +111,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                     )
                 ''')
                 rows_affected = cursor.rowcount
-                debug_print('POCKETBOOK632: %d rows from books_settings deleted' %(rows_affected))
+                debug_print('PB_IMPROVED: %d rows from books_settings deleted' %(rows_affected))
 
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
@@ -116,7 +128,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                     )
                 ''')
                 rows_affected = cursor.rowcount
-                debug_print('POCKETBOOK632: %d rows from booktogenre deleted' %(rows_affected))
+                debug_print('PB_IMPROVED: %d rows from booktogenre deleted' %(rows_affected))
 
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
@@ -133,7 +145,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                     )
                 ''')
                 rows_affected = cursor.rowcount
-                debug_print('POCKETBOOK632: %d rows from social deleted' %(rows_affected))
+                debug_print('PB_IMPROVED: %d rows from social deleted' %(rows_affected))
 
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
@@ -145,7 +157,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                     )
                 ''')
                 rows_affected = cursor.rowcount
-                debug_print('POCKETBOOK632: %d rows from books_impl deleted' %(rows_affected))
+                debug_print('PB_IMPROVED: %d rows from books_impl deleted' %(rows_affected))
 
             with closing(connection.cursor()) as cursor:
                 cursor.execute('''
@@ -157,7 +169,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                     )
                 ''')
                 rows_affected = cursor.rowcount
-                debug_print('POCKETBOOK632: %d rows from books_fast_hashes deleted' %(rows_affected))
+                debug_print('PB_IMPROVED: %d rows from books_fast_hashes deleted' %(rows_affected))
 
 
             connection.commit()
@@ -169,7 +181,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
         changed_books = set()
 
         if first_call:
-            debug_print('POCKETBOOK632: start sychronize_with_db')
+            debug_print('PB_IMPROVED: start sychronize_with_db')
         
             # check if the read column exists in Calibre
             fm = db.field_metadata.custom_field_metadata()
@@ -177,7 +189,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
             read_column = fm[self.read_lookup_name]
             self.has_read_column = read_column != None and read_column['datatype'] == 'bool'
 
-            debug_print('POCKETBOOK632: read-column: ' + self.read_lookup_name)
+            debug_print('PB_IMPROVED: read-column: ' + self.read_lookup_name)
 
 
         with closing(sqlite.connect(self.dbpath)) as connection:
@@ -202,9 +214,9 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                 row = cursor.fetchone()
 
             if row == None:
-                debug_print('POCKETBOOK632: Book not found on device: ' + ', '.join(book_metadata.authors) + ': ' + book_metadata.title)
-                debug_print('POCKETBOOK632: ', folder)
-                debug_print('POCKETBOOK632: ', filename)
+                debug_print('PB_IMPROVED: Book not found on device: ' + ', '.join(book_metadata.authors) + ': ' + book_metadata.title)
+                debug_print('PB_IMPROVED: ', folder)
+                debug_print('PB_IMPROVED: ', filename)
 
             else:
                 device_book_id = row[0]
@@ -229,11 +241,11 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                         author != book_metadata.authors[0] or
                         sort_title != book_metadata.title_sort or
                         firstauthor != book_metadata.authors[0]):
-                        debug_print('POCKETBOOK632: Title or author mismatch')
-                        debug_print('POCKETBOOK632: ', book_metadata.title, title)
-                        debug_print('POCKETBOOK632: ', book_metadata.title_sort, sort_title)
-                        debug_print('POCKETBOOK632: ', str(book_metadata.authors))
-                        debug_print('POCKETBOOK632: ', str(book_metadata.author_sort))
+                        debug_print('PB_IMPROVED: Title or author mismatch')
+                        debug_print('PB_IMPROVED: ', book_metadata.title, title)
+                        debug_print('PB_IMPROVED: ', book_metadata.title_sort, sort_title)
+                        debug_print('PB_IMPROVED: ', str(book_metadata.authors))
+                        debug_print('PB_IMPROVED: ', str(book_metadata.author_sort))
 
                         with closing(connection.cursor()) as update_cursor:
                             update_cursor.execute('''
@@ -283,24 +295,24 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                 
 
                 if (calibre_read or device_read) and calibre_read != device_read:
-                    debug_print('POCKETBOOK632: --------------')
-                    debug_print('POCKETBOOK632: ' + str(book_metadata.authors))
-                    debug_print('POCKETBOOK632: ' + book_metadata.title)
-                    debug_print('POCKETBOOK632: Device book id: ' + str(device_book_id))            
-                    debug_print('POCKETBOOK632: Calibre read: ' + str(calibre_read))
-                    debug_print('POCKETBOOK632: Device read: ' + str(device_read))
+                    debug_print('PB_IMPROVED: --------------')
+                    debug_print('PB_IMPROVED: ' + str(book_metadata.authors))
+                    debug_print('PB_IMPROVED: ' + book_metadata.title)
+                    debug_print('PB_IMPROVED: Device book id: ' + str(device_book_id))            
+                    debug_print('PB_IMPROVED: Calibre read: ' + str(calibre_read))
+                    debug_print('PB_IMPROVED: Device read: ' + str(device_read))
 
                     if not calibre_read:
                         # book is marked read on the device, but not in Calibre
-                        debug_print('POCKETBOOK632: Update Calibre database for book_id: ' + str(book_id))
+                        debug_print('PB_IMPROVED: Update Calibre database for book_id: ' + str(book_id))
                         changed_books |= db.new_api.set_field(self.read_lookup_name, {book_id: True})
                     else:
                         # book is marked read in Calibre, but not on device
-                        debug_print('POCKETBOOK632: Update device database')
+                        debug_print('PB_IMPROVED: Update device database')
 
                         with closing(connection.cursor()) as cursor:
                             if not has_book_settings:
-                                debug_print('POCKETBOOK632: Create new settings entry')
+                                debug_print('PB_IMPROVED: Create new settings entry')
                                 cursor.execute('''
                                     INSERT INTO BOOKS_SETTINGS
                                     (
@@ -318,7 +330,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                                     )
                                 ''',(device_book_id, int(time.time())))
                             else:
-                                debug_print('POCKETBOOK632: Update settings entry')
+                                debug_print('PB_IMPROVED: Update settings entry')
                                 cursor.execute('''
                                     UPDATE BOOKS_SETTINGS
                                     SET COMPLETED = 1
@@ -337,12 +349,12 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
 
     # delete books
     def delete_books(self, paths, end_session=True):
-        debug_print('POCKETBOOK632: delete_books()')
+        debug_print('PB_IMPROVED: delete_books()')
 
         with closing(sqlite.connect(self.dbpath)) as connection:
             for i, path in enumerate(paths):
                 path = path.replace(self._main_prefix, '')
-                debug_print('POCKETBOOK632: ' + path)
+                debug_print('PB_IMPROVED: ' + path)
 
                 folder = os.path.dirname(path)
                 filename = os.path.basename(path)
@@ -362,7 +374,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                 if row != None:
                     # book_id found, delete all database entries
                     file_id,folder_id,book_id = row
-                    debug_print('POCKETBOOK632: file_id: ' + str(file_id) + ', folder_id: ' + str(folder_id) + ', book_id: ' + str(book_id))
+                    debug_print('PB_IMPROVED: file_id: ' + str(file_id) + ', folder_id: ' + str(folder_id) + ', book_id: ' + str(book_id))
 
                     with closing(connection.cursor()) as cursor:
                         cursor.execute('''
@@ -405,7 +417,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                         ''', (book_id,))
 
                 else:
-                    debug_print('POCKETBOOK632: Book not found in database')
+                    debug_print('PB_IMPROVED: Book not found in database')
 
                     folder = os.path.dirname(path)
                     with closing(connection.cursor()) as cursor:
@@ -418,7 +430,7 @@ class POCKETBOOK632(USBMS, PB632DeviceConfig):
                             )
                         ''', ('%' + folder,))
                         rows_affected = cursor.rowcount
-                        debug_print('POCKETBOOK632: %d folder(s) deleted' %(rows_affected))
+                        debug_print('PB_IMPROVED: %d folder(s) deleted' %(rows_affected))
 
             connection.commit()
 
