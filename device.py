@@ -48,7 +48,7 @@ class POCKETBOOK_IMPROVED(USBMS, PocketBookImprovedDeviceConfig):
     # PB628     ???          ???
     # PB1040    0x18d1       0x0001
 
-    VENDOR_ID   = [0xfffe,0x18d1]
+    VENDOR_ID   = [0xfffe, 0x18d1]
     PRODUCT_ID  = [0x0001]
 
     BCD         = [0x0230, 0x101]
