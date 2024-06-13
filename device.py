@@ -52,7 +52,7 @@ class POCKETBOOK_IMPROVED(USBMS, PocketBookImprovedDeviceConfig):
     VENDOR_ID   = [0xfffe, 0x18d1, 0x1d6b]
     PRODUCT_ID  = [0x0001, 0x0104]
 
-    BCD         = [0x0230, 0x101]
+    BCD         = [0x0230, 0x101, 0x0100]
 
 
     EBOOK_DIR_MAIN = 'Books'
