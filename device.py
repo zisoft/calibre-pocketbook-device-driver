@@ -1,5 +1,5 @@
 __license__   = 'GPL v3'
-__copyright__ = '2022 Mario Zimmermann <mail@zisoft.de>'
+__copyright__ = '2024 Mario Zimmermann <mail@zisoft.de>'
 __docformat__ = 'restructuredtext en'
 
 '''
@@ -29,7 +29,7 @@ class POCKETBOOK_IMPROVED(USBMS, PocketBookImprovedDeviceConfig):
     gui_name = 'PocketBook Improved'
     description    = _('Communicate with PocketBook readers')
     author         = 'Mario Zimmermann'
-    version        = (1, 0, 3)
+    version        = (1, 0, 4)
     supported_platforms = ['windows', 'osx', 'linux']
 
     minimum_calibre_version = (5, 0, 0)
